@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "capnp-stub-generator"
+version = "1.0.0"
+description = ""
+authors = ["Adrian Figueroa <adrian.figueroa@metirionic.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+black = "^22.6.0"
+isort = "^5.10.1"
+pycapnp = "^1.1.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[tool.poetry.scripts]
+capnp-stub-generator = "capnp_stub_generator.cli:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
