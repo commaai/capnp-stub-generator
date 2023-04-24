@@ -1,6 +1,9 @@
 """Types definitions that are common in capnproto schemas."""
+from __future__ import annotations
+
 from types import ModuleType
-from typing import Dict, Tuple
+from typing import Dict
+from typing import Tuple
 
 CAPNP_TYPE_TO_PYTHON = {
     "void": "None",
@@ -19,6 +22,7 @@ CAPNP_TYPE_TO_PYTHON = {
     "data": "bytes",
 }
 
+
 class CapnpFieldType:
     """Types of capnproto fields."""
 
@@ -26,24 +30,16 @@ class CapnpFieldType:
     SLOT = "slot"
 
 
-class CapnpSlotType:
-    """Types of capnproto slots.
-
-    If CapnpFieldType is 'slot', this defines the type of that slot.
-    """
-
-    ANY_POINTER = "anyPointer"
-    STRUCT = "struct"
-    ENUM = "enum"
-    LIST = "list"
-
-
 class CapnpElementType:
     """Types of capnproto elements."""
 
+    BOOL = "bool"
     ENUM = "enum"
     STRUCT = "struct"
     CONST = "const"
+    VOID = "void"
+    LIST = "list"
+    ANY_POINTER = "anyPointer"
 
 
 ModuleRegistryType = Dict[int, Tuple[str, ModuleType]]

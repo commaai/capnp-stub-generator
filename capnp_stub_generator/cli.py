@@ -1,35 +1,19 @@
 """Command-line interface for generating type hints for *.capnp schemas.
 
 Notes:
-    - This generator requires pycapnp >= 1.0.0.
+    - The outputs of this generator are only compatible with pycapnp version >= 1.1.1.
     - Capnp interfaces (RPC) are not yet supported.
 """
-
 from __future__ import annotations
 
 import argparse
 import logging
 import os.path
-from typing import Sequence
+from collections.abc import Sequence
 
-from capnp_stub_generator.generator import run
+from capnp_stub_generator.run import run
 
 logger = logging.getLogger(__name__)
-
-
-def _add_output_argument(parser: argparse.ArgumentParser):
-    """Add an output argument to a parser.
-
-    Args:
-        parser (argparse.ArgumentParser): The parser to add the argument to.
-    """
-    parser.add_argument(
-        "-o",
-        "--output-dir",
-        dest="output_dir",
-        default=None,
-        help="override directory where to write the .pyi file",
-    )
 
 
 def _add_recursive_argument(parser: argparse.ArgumentParser):
@@ -57,12 +41,21 @@ def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate type hints for capnp schema files.")
 
     parser.add_argument(
+        "-c",
+        "--clean",
+        type=str,
+        nargs="+",
+        default=[],
+        help="path or glob expressions that match files to clean up before stub generation.",
+    )
+
+    parser.add_argument(
         "-p",
         "--paths",
         type=str,
         nargs="+",
         default=["**/*.capnp"],
-        help="path or glob expressions that match *.capnp files.",
+        help="path or glob expressions that match *.capnp files for stub generation.",
     )
 
     parser.add_argument(
@@ -70,11 +63,10 @@ def setup_parser() -> argparse.ArgumentParser:
         "--excludes",
         type=str,
         nargs="+",
-        default=["**/c-capnproto/**/*.capnp"],
-        help="path or glob expressions to exclude from matches.",
+        default=[],
+        help="path or glob expressions to exclude from path matches.",
     )
 
-    _add_output_argument(parser)
     _add_recursive_argument(parser)
 
     return parser
@@ -100,13 +92,3 @@ def main(argv: Sequence[str] | None = None) -> int:
     run(args, root_directory)
 
     return 0
-
-
-if __name__ == "__main__":
-    main(
-        [
-            "-p",
-            "python/libraries/mars/mars/interfaces/**/*.capnp",
-            "-r",
-        ]
-    )

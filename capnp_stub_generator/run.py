@@ -1,5 +1,4 @@
 """Top-level module for stub generation."""
-
 from __future__ import annotations
 
 import argparse
@@ -7,10 +6,9 @@ import glob
 import logging
 import os.path
 from types import ModuleType
-from typing import Set
 
 import black
-import capnp
+import capnp  # type: ignore
 import isort
 from capnp_stub_generator.capnp_types import ModuleRegistryType
 from capnp_stub_generator.helper import replace_capnp_suffix
@@ -23,6 +21,22 @@ logger = logging.getLogger(__name__)
 
 PYI_SUFFIX = ".pyi"
 PY_SUFFIX = ".py"
+LINE_LENGTH = 120
+
+
+def format_outputs(raw_input: str, is_pyi: bool, line_length: int = LINE_LENGTH) -> str:
+    """Formats raw input by means of `black` and `isort`.
+
+    Args:
+        raw_input (str): The unformatted input.
+        is_pyi (bool): Whether or not the output is a `pyi` file.
+
+    Returns:
+        str: The formatted outputs.
+    """
+    # FIXME: Extract config from dev_policies
+    sorted_imports = isort.code(raw_input, config=isort.Config(profile="black", line_length=line_length))
+    return black.format_str(sorted_imports, mode=black.Mode(is_pyi=is_pyi, line_length=line_length))
 
 
 def generate_stubs(module: ModuleType, module_registry: ModuleRegistryType, output_file_path: str):
@@ -34,11 +48,10 @@ def generate_stubs(module: ModuleType, module_registry: ModuleRegistryType, outp
         output_file_path (str): The name of the output stub files, without file extension.
     """
     writer = Writer(module, module_registry)
-    writer.generate_recursive()
+    writer.generate_all_nested()
 
-    for outputs, suffix in zip((writer.dumps_pyi(), writer.dumps_py()), (PYI_SUFFIX, PY_SUFFIX)):
-        sorted_imports = isort.code(outputs, config=isort.Config(profile="black"))
-        formatted_output = black.format_str(sorted_imports, mode=black.Mode(is_pyi=True, line_length=79))
+    for outputs, suffix, is_pyi in zip((writer.dumps_pyi(), writer.dumps_py()), (PYI_SUFFIX, PY_SUFFIX), (True, False)):
+        formatted_output = format_outputs(outputs, is_pyi)
 
         with open(output_file_path + suffix, "w", encoding="utf8") as output_file:
             output_file.write(formatted_output)
@@ -55,15 +68,24 @@ def run(args: argparse.Namespace, root_directory: str):
         args (argparse.Namespace): The arguments that were passed when calling the stub generator.
         root_directory (str): The directory, from which the generator is executed.
     """
-    paths: str = args.paths
-    excludes: str = args.excludes
+    paths: list[str] = args.paths
+    excludes: list[str] = args.excludes
+    clean: list[str] = args.clean
 
-    excluded_paths: Set[str] = set()
+    cleanup_paths: set[str] = set()
+    for c in clean:
+        cleanup_directory = os.path.join(root_directory, c)
+        cleanup_paths = cleanup_paths.union(glob.glob(cleanup_directory, recursive=args.recursive))
+
+    for cleanup_path in cleanup_paths:
+        os.remove(cleanup_path)
+
+    excluded_paths: set[str] = set()
     for exclude in excludes:
         exclude_directory = os.path.join(root_directory, exclude)
         excluded_paths = excluded_paths.union(glob.glob(exclude_directory, recursive=args.recursive))
 
-    search_paths: Set[str] = set()
+    search_paths: set[str] = set()
     for path in paths:
         search_directory = os.path.join(root_directory, path)
         search_paths = search_paths.union(glob.glob(search_directory, recursive=args.recursive))
