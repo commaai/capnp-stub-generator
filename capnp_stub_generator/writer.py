@@ -377,6 +377,7 @@ class Writer:
         self._add_typing_import("Literal")
         enum_type = helper.new_group("Literal", [f'"{enumerant.name}"' for enumerant in schema.node.enum.enumerants])
         self.scope.add(helper.new_type_alias(name, enum_type))
+        self.scopes_by_id[schema.node.id] = Scope(name=name, id=schema.node.id, parent=self.scope, return_scope=self.scope, type="enum")
 
         return None
 
@@ -702,6 +703,10 @@ class Writer:
                     matching_path = pathlib.Path(path)
                     break
 
+        if matching_path is None and isinstance(schema, capnp.lib.capnp._EnumSchema):
+            logging.error(f"Could not find the path of the enum {definition_name}.")
+            return None
+
         # Since this is an import, there must be a parent module.
         assert matching_path is not None, f"The module named {module_name} was not provided to the stub generator."
 
@@ -935,11 +940,13 @@ class Writer:
         out.append("here = os.path.dirname(os.path.abspath(__file__))")
 
         out.append(f'module_file = os.path.abspath(os.path.join(here, "{self.display_name}"))')
+        out.append("module = capnp.load(module_file)  # pylint: disable=no-member")
 
         for scope in self.scopes_by_id.values():
             if scope.parent is not None and scope.parent.is_root:
-                out.append(f"{scope.name} = capnp.load(module_file).{scope.name}")
-                out.append(f"{helper.new_builder(scope.name)} = {scope.name}")
-                out.append(f"{helper.new_reader(scope.name)} = {scope.name}")
+                out.append(f"{scope.name} = module.{scope.name}")
+                if scope.type == "struct":
+                    out.append(f"{helper.new_builder(scope.name)} = {scope.name}")
+                    out.append(f"{helper.new_reader(scope.name)} = {scope.name}")
 
         return "\n".join(out)

@@ -76,7 +76,7 @@ class TypeHintedVariable:
             if type_hint.primary:
                 primary_type_hint_count += 1
 
-        if primary_type_hint_count != 1:
+        if primary_type_hint_count > 1:
             raise ValueError(f"There can only be exactly one primary type hint. Found {primary_type_hint_count}")
 
     def __str__(self) -> str:
