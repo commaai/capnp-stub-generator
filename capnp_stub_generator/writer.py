@@ -377,6 +377,7 @@ class Writer:
         self._add_typing_import("Literal")
         enum_type = helper.new_group("Literal", [f'"{enumerant.name}"' for enumerant in schema.node.enum.enumerants])
         self.scope.add(helper.new_type_alias(name, enum_type))
+        self.scopes_by_id[schema.node.id] = Scope(name=name, id=schema.node.id, parent=self.scope, return_scope=self.scope, type="enum")
 
         return None
 
