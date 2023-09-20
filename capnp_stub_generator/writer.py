@@ -944,7 +944,8 @@ class Writer:
         for scope in self.scopes_by_id.values():
             if scope.parent is not None and scope.parent.is_root:
                 out.append(f"{scope.name} = capnp.load(module_file).{scope.name}")
-                out.append(f"{helper.new_builder(scope.name)} = {scope.name}")
-                out.append(f"{helper.new_reader(scope.name)} = {scope.name}")
+                if scope.type == "struct":
+                    out.append(f"{helper.new_builder(scope.name)} = {scope.name}")
+                    out.append(f"{helper.new_reader(scope.name)} = {scope.name}")
 
         return "\n".join(out)
