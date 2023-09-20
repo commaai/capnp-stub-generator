@@ -703,6 +703,10 @@ class Writer:
                     matching_path = pathlib.Path(path)
                     break
 
+        if matching_path is None and isinstance(schema, capnp.lib.capnp._EnumSchema):
+            logging.error(f"Could not find the path of the enum {definition_name}.")
+            return None
+
         # Since this is an import, there must be a parent module.
         assert matching_path is not None, f"The module named {module_name} was not provided to the stub generator."
 
