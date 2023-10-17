@@ -67,6 +67,14 @@ def setup_parser() -> argparse.ArgumentParser:
         help="path or glob expressions to exclude from path matches.",
     )
 
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default="",
+        help="output directory for stub generation. defaults to the same directory as stub file.",
+    )
+
     _add_recursive_argument(parser)
 
     return parser

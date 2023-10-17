@@ -76,6 +76,7 @@ def run(args: argparse.Namespace, root_directory: str):
     paths: list[str] = args.paths
     excludes: list[str] = args.excludes
     clean: list[str] = args.clean
+    output: str = args.output
 
     cleanup_paths: set[str] = set()
     for c in clean:
@@ -106,7 +107,8 @@ def run(args: argparse.Namespace, root_directory: str):
         module_registry[module.schema.node.id] = (path, module)
 
     for path, module in module_registry.values():
-        output_directory = os.path.dirname(path)
+        output_directory = os.path.dirname(path) if output is "" else output
+        os.makedirs(output_directory, exist_ok=True)
         output_file_name = replace_capnp_suffix(os.path.basename(path))
 
         generate_stubs(module, module_registry, os.path.join(output_directory, output_file_name))
