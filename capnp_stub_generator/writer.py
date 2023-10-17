@@ -501,22 +501,27 @@ class Writer:
 
             self.scope.add(helper.new_function("which", parameters=["self"], return_type=return_type))
 
+        self._add_typing_import("overload")
+
         # Add an overloaded `init` function for each nested struct.
         if init_choices:
             self._add_typing_import("Literal")
-            use_overload = len(init_choices) > 1
-            if use_overload:
-                self._add_typing_import("overload")
 
             for field_name, field_type in init_choices:
-                if use_overload:
-                    self.scope.add(helper.new_decorator("overload"))
+                self.scope.add(helper.new_decorator("overload"))
 
                 self.scope.add(
                     helper.new_function(
-                        "init", parameters=["self", f'name: Literal["{field_name}"]'], return_type=field_type
+                        "init", parameters=["self", f'name: Literal["{field_name}"]', f'size: int = 1'], return_type=field_type
                     )
                 )
+
+        self.scope.add(helper.new_decorator("overload"))
+        self.scope.add(
+            helper.new_function(
+                "init", parameters=["self", f'name: str', f'size: int = 1'], return_type=type_name
+            )
+        )
 
         # Add static methods for converting from/to bytes.
         self._add_typing_import("Iterator")
