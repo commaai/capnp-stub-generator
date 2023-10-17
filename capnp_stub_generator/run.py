@@ -44,7 +44,7 @@ def format_outputs(raw_input: str, is_pyi: bool, line_length: int = LINE_LENGTH)
     return black.format_str(sorted_imports, mode=black.Mode(is_pyi=is_pyi, line_length=line_length))
 
 
-def generate_stubs(module: ModuleType, module_registry: ModuleRegistryType, output_file_path: str):
+def generate_stubs(module: ModuleType, module_registry: ModuleRegistryType, path: str, output_file_path: str):
     """Entry-point for generating *.pyi stubs from a module definition.
 
     Args:
@@ -52,7 +52,10 @@ def generate_stubs(module: ModuleType, module_registry: ModuleRegistryType, outp
         module_registry (ModuleRegistryType): A registry of all detected modules.
         output_file_path (str): The name of the output stub files, without file extension.
     """
-    writer = Writer(module, module_registry)
+
+    relative_path = os.path.relpath(os.path.dirname(path), os.path.dirname(output_file_path))
+
+    writer = Writer(relative_path, module, module_registry)
     writer.generate_all_nested()
 
     for outputs, suffix, is_pyi in zip((writer.dumps_pyi(), writer.dumps_py()), (PYI_SUFFIX, PY_SUFFIX), (True, False)):
@@ -111,4 +114,4 @@ def run(args: argparse.Namespace, root_directory: str):
         os.makedirs(output_directory, exist_ok=True)
         output_file_name = replace_capnp_suffix(os.path.basename(path))
 
-        generate_stubs(module, module_registry, os.path.join(output_directory, output_file_name))
+        generate_stubs(module, module_registry, path, os.path.join(output_directory, output_file_name))

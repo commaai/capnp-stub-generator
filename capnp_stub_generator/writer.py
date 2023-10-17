@@ -33,7 +33,7 @@ class Writer:
 
     VALID_TYPING_IMPORTS = Literal["Iterator", "Generic", "TypeVar", "Sequence", "Literal", "Union", "overload"]
 
-    def __init__(self, module: ModuleType, module_registry: capnp_types.ModuleRegistryType):
+    def __init__(self, relative_path: str, module: ModuleType, module_registry: capnp_types.ModuleRegistryType):
         """Initialize the stub writer with a module definition.
 
         Args:
@@ -61,6 +61,8 @@ class Writer:
         self.type_map: dict[int, CapnpType] = {}
 
         self.docstring = f'"""This is an automatically generated stub for `{self._module_path.name}`."""'
+
+        self.relative_path = relative_path
 
     def _add_typing_import(self, module_name: Writer.VALID_TYPING_IMPORTS):
         """Add an import for a module from the 'typing' package.
@@ -942,9 +944,10 @@ class Writer:
         out.append("import os")
         out.append("import capnp # type: ignore")
         out.append("capnp.remove_import_hook()")
+
         out.append("here = os.path.dirname(os.path.abspath(__file__))")
 
-        out.append(f'module_file = os.path.abspath(os.path.join(here, "{self.display_name}"))')
+        out.append(f'module_file = os.path.abspath(os.path.join(here, "{self.relative_path}", "{self.display_name}"))')
         out.append("module = capnp.load(module_file)  # pylint: disable=no-member")
 
         for scope in self.scopes_by_id.values():
