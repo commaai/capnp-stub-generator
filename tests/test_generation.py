@@ -1,28 +1,44 @@
-"""Tests the capnproto stub generator."""
-from __future__ import annotations
-
 import os
+import pathlib
+import subprocess
+import sys
+import unittest
 
 from capnp_stub_generator.cli import main
 
-here = os.path.dirname(__file__)
+here = pathlib.Path(__file__).parent
 
 
-def test_generation():
-    """Compare the generated output to a reference file."""
-    main(
-        [
-            "-p",
-            os.path.join(here, "dummy.capnp"),
-            "-c",
-            os.path.join(here, "dummy_capnp.pyi"),
-        ]
-    )
+class TestGeneration(unittest.TestCase):
+    @classmethod
+    def py_file(cls):
+        return here / f"dummy_capnp.py"
 
-    with open(os.path.join(here, "dummy_capnp.pyi"), encoding="utf8") as test_file:
-        test_data = test_file.readlines()
+    @classmethod
+    def setUpClass(cls):
+        main(
+            [
+                "-p",
+                str(here / "dummy.capnp"),
+                "-o",
+                str(cls.py_file().parent)
+            ]
+        )
 
-    with open(os.path.join(here, "ref_dummy_capnp.pyi_nocheck"), encoding="utf8") as ref_file:
-        ref_data = ref_file.readlines()
+    @property
+    def env(self):
+        env = os.environ.copy()
+        env.update({"PYTHONPATH": str(self.py_file().parent)})
+        return env
 
-    assert test_data == ref_data
+    def test_reading(self):
+        # Check that access the module works.
+        assert subprocess.run([sys.executable, str(here / "use_dummy.py")], env=self.env).returncode == 0
+
+    def test_mypy(self):
+        # Assert that all types are present and valid
+        assert subprocess.run([sys.executable, "-m", "mypy", str(here / "use_dummy.py")], env=self.env).returncode == 0
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -709,3 +709,29 @@ struct TestNameAnnotation $Cxx.name("RenamedStruct") {
     baz @5 :NestedStruct $Cxx.name("qux");
   }
 }
+
+# Generics
+struct Map(Key, Value) {
+  entries @0 :List(Entry);
+  struct Entry {
+    key @0 :Key;
+    value @1 :Value;
+  }
+}
+
+struct TestMap {
+  textMap @0 :Map(Text, Text);
+  bytesMap @1 :Map(Data, Data);
+}
+
+struct PythonBadNames {
+  from @0 :Text;
+  yield @1 :Text;
+
+  enum PythonBadEnum {
+    from @0;
+    yield @1;
+  }
+
+  enum @2 :PythonBadEnum;
+}
