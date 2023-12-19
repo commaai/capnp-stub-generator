@@ -8,9 +8,7 @@ import os.path
 from types import ModuleType
 import re
 
-import black
 import capnp  # type: ignore
-import isort
 from capnp_stub_generator.capnp_types import ModuleRegistryType
 from capnp_stub_generator.helper import replace_capnp_suffix
 from capnp_stub_generator.writer import Writer
@@ -26,7 +24,7 @@ LINE_LENGTH = 120
 
 
 def format_outputs(raw_input: str, is_pyi: bool, line_length: int = LINE_LENGTH) -> str:
-    """Formats raw input by means of `black` and `isort`.
+    """Formats raw input by means of `black`.
 
     Args:
         raw_input (str): The unformatted input.
@@ -42,8 +40,7 @@ def format_outputs(raw_input: str, is_pyi: bool, line_length: int = LINE_LENGTH)
     if n1 + n2 > 0:
         logger.warning(f"Commented {n1+n2} lines due to generics not being handled properly. These will not have type hints.")
 
-    sorted_imports = isort.code(raw_input, config=isort.Config(profile="black", line_length=line_length))
-    return black.format_str(sorted_imports, mode=black.Mode(is_pyi=is_pyi, line_length=line_length))
+    return raw_input
 
 
 def generate_stubs(module: ModuleType, module_registry: ModuleRegistryType, path: str, output_file_path: str):
