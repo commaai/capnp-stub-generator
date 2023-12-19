@@ -7,6 +7,7 @@ Note: capnp interfaces (RPC) are not yet supported.
 from __future__ import annotations
 
 import logging
+import keyword
 import os.path
 import pathlib
 from types import ModuleType
@@ -33,7 +34,7 @@ class Writer:
 
     VALID_TYPING_IMPORTS = Literal["Iterator", "Generic", "TypeVar", "Sequence", "Literal", "Union", "overload"]
 
-    def __init__(self, module: ModuleType, module_registry: capnp_types.ModuleRegistryType):
+    def __init__(self, relative_path: str, module: ModuleType, module_registry: capnp_types.ModuleRegistryType):
         """Initialize the stub writer with a module definition.
 
         Args:
@@ -62,6 +63,8 @@ class Writer:
 
         self.docstring = f'"""This is an automatically generated stub for `{self._module_path.name}`."""'
 
+        self.relative_path = relative_path
+
     def _add_typing_import(self, module_name: Writer.VALID_TYPING_IMPORTS):
         """Add an import for a module from the 'typing' package.
 
@@ -86,9 +89,9 @@ class Writer:
         """
         self._imports.add(import_line)
 
-    def _add_enum_import(self):
+    def _add_enum_import(self, t="Enum"):
         """Adds an import for the `Enum` class."""
-        self._add_import("from enum import Enum")
+        self._add_import(f"from enum import {t}")
 
     @property
     def full_display_name(self) -> str:
@@ -138,6 +141,10 @@ class Writer:
         """
         hinted_variable: helper.TypeHintedVariable | None
         field_slot_type = field.slot.type.which()
+
+        if field.name in keyword.kwlist:
+            logger.warning(f"Skipping python unsafe field name: {field.name}, no type hints will be created for this variable.")
+            return None
 
         if field_slot_type == capnp_types.CapnpElementType.LIST:
             hinted_variable = self.gen_list_slot(field, raw_field.schema)
@@ -374,9 +381,23 @@ class Writer:
         name = helper.get_display_name(schema)
         self.register_type(schema.node.id, schema, name=name, scope=self.scope)
 
-        self._add_typing_import("Literal")
-        enum_type = helper.new_group("Literal", [f'"{enumerant.name}"' for enumerant in schema.node.enum.enumerants])
-        self.scope.add(helper.new_type_alias(name, enum_type))
+        self._add_enum_import("IntEnum")
+
+        self._add_typing_import("Any")
+
+        class_declaration = helper.new_class_declaration(name, parameters=["IntEnum"])
+
+        self.scope.add(class_declaration)
+
+        self.scope.add("    schema: Any")
+        self.scope.add("    enumerants: Any")
+ 
+        for field in schema.node.enum.enumerants:
+            if field.name in keyword.kwlist:
+                logging.warning(f"Skipping python unsafe field name: {field.name} within enum {name}, no type hints will be created for this variable.")
+                continue
+            self.scope.add("    " + helper.new_type_alias(field.name, field.codeOrder))
+
         self.scopes_by_id[schema.node.id] = Scope(name=name, id=schema.node.id, parent=self.scope, return_scope=self.scope, type="enum")
 
         return None
@@ -445,6 +466,9 @@ class Writer:
         # Do not write the class declaration to the scope, until all nested schemas were expanded.
         parent_scope = self.new_scope(type_name, schema.node)
 
+        self._add_typing_import("Any")
+        self.scope.add("schema: Any")
+
         new_type: CapnpType = self.register_type(schema.node.id, schema, name=type_name)
         new_type.generic_params = registered_params
 
@@ -501,22 +525,27 @@ class Writer:
 
             self.scope.add(helper.new_function("which", parameters=["self"], return_type=return_type))
 
+        self._add_typing_import("overload")
+
         # Add an overloaded `init` function for each nested struct.
         if init_choices:
             self._add_typing_import("Literal")
-            use_overload = len(init_choices) > 1
-            if use_overload:
-                self._add_typing_import("overload")
 
             for field_name, field_type in init_choices:
-                if use_overload:
-                    self.scope.add(helper.new_decorator("overload"))
+                self.scope.add(helper.new_decorator("overload"))
 
                 self.scope.add(
                     helper.new_function(
-                        "init", parameters=["self", f'name: Literal["{field_name}"]'], return_type=field_type
+                        "init", parameters=["self", f'name: Literal["{field_name}"]', f'size: int = 1'], return_type=field_type
                     )
                 )
+
+        self.scope.add(helper.new_decorator("overload"))
+        self.scope.add(
+            helper.new_function(
+                "init", parameters=["self", f'name: str', f'size: int = 1'], return_type=type_name
+            )
+        )
 
         # Add static methods for converting from/to bytes.
         self._add_typing_import("Iterator")
@@ -558,6 +587,30 @@ class Writer:
                     ),
                 ],
                 return_type=scoped_new_reader_type_name,
+            )
+        )
+
+        self.scope.add(
+            helper.new_function(
+                "to_bytes",
+                parameters=["self"],
+                return_type='bytes',
+            )
+        )
+
+        self.scope.add(
+            helper.new_function(
+                "__init__",
+                parameters=["self, *args", "**kwargs"],
+                return_type=type_name,
+            )
+        )
+
+        self.scope.add(
+            helper.new_function(
+                "__getattr__",
+                parameters=["self", "name"],
+                return_type="Any",
             )
         )
 
@@ -937,9 +990,10 @@ class Writer:
         out.append("import os")
         out.append("import capnp # type: ignore")
         out.append("capnp.remove_import_hook()")
+
         out.append("here = os.path.dirname(os.path.abspath(__file__))")
 
-        out.append(f'module_file = os.path.abspath(os.path.join(here, "{self.display_name}"))')
+        out.append(f'module_file = os.path.abspath(os.path.join(here, "{self.relative_path}", "{self.display_name}"))')
         out.append("module = capnp.load(module_file)  # pylint: disable=no-member")
 
         for scope in self.scopes_by_id.values():

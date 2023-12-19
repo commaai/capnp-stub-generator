@@ -8,9 +8,7 @@ import os.path
 from types import ModuleType
 import re
 
-import black
 import capnp  # type: ignore
-import isort
 from capnp_stub_generator.capnp_types import ModuleRegistryType
 from capnp_stub_generator.helper import replace_capnp_suffix
 from capnp_stub_generator.writer import Writer
@@ -26,7 +24,7 @@ LINE_LENGTH = 120
 
 
 def format_outputs(raw_input: str, is_pyi: bool, line_length: int = LINE_LENGTH) -> str:
-    """Formats raw input by means of `black` and `isort`.
+    """Formats raw input by means of `black`.
 
     Args:
         raw_input (str): The unformatted input.
@@ -35,16 +33,17 @@ def format_outputs(raw_input: str, is_pyi: bool, line_length: int = LINE_LENGTH)
     Returns:
         str: The formatted outputs.
     """
-    # FIXME: Extract config from dev_policies
-    raw_input = raw_input.replace("from:", "# from:")  # fix invalid identifier
     # comment out lines that include "]Builder" or "]Reader" as these are syntax errors
-    raw_input = re.sub(r"^(.*])Builder$", r"# \1Builder", raw_input, flags=re.MULTILINE)
-    raw_input = re.sub(r"^(.*])Reader$", r"# \1Reader", raw_input, flags=re.MULTILINE)
-    sorted_imports = isort.code(raw_input, config=isort.Config(profile="black", line_length=line_length))
-    return black.format_str(sorted_imports, mode=black.Mode(is_pyi=is_pyi, line_length=line_length))
+    raw_input, n1 = re.subn(r"^(.*])Builder$", r"# \1Builder", raw_input, flags=re.MULTILINE)
+    raw_input, n2 = re.subn(r"^(.*])Reader$", r"# \1Reader", raw_input, flags=re.MULTILINE)
+    
+    if n1 + n2 > 0:
+        logger.warning(f"Commented {n1+n2} lines due to generics not being handled properly. These will not have type hints.")
+
+    return raw_input
 
 
-def generate_stubs(module: ModuleType, module_registry: ModuleRegistryType, output_file_path: str):
+def generate_stubs(module: ModuleType, module_registry: ModuleRegistryType, path: str, output_file_path: str):
     """Entry-point for generating *.pyi stubs from a module definition.
 
     Args:
@@ -52,7 +51,10 @@ def generate_stubs(module: ModuleType, module_registry: ModuleRegistryType, outp
         module_registry (ModuleRegistryType): A registry of all detected modules.
         output_file_path (str): The name of the output stub files, without file extension.
     """
-    writer = Writer(module, module_registry)
+
+    relative_path = os.path.relpath(os.path.dirname(path), os.path.dirname(output_file_path))
+
+    writer = Writer(relative_path, module, module_registry)
     writer.generate_all_nested()
 
     for outputs, suffix, is_pyi in zip((writer.dumps_pyi(), writer.dumps_py()), (PYI_SUFFIX, PY_SUFFIX), (True, False)):
@@ -76,6 +78,7 @@ def run(args: argparse.Namespace, root_directory: str):
     paths: list[str] = args.paths
     excludes: list[str] = args.excludes
     clean: list[str] = args.clean
+    output: str = args.output
 
     cleanup_paths: set[str] = set()
     for c in clean:
@@ -106,7 +109,8 @@ def run(args: argparse.Namespace, root_directory: str):
         module_registry[module.schema.node.id] = (path, module)
 
     for path, module in module_registry.values():
-        output_directory = os.path.dirname(path)
+        output_directory = os.path.dirname(path) if output is "" else output
+        os.makedirs(output_directory, exist_ok=True)
         output_file_name = replace_capnp_suffix(os.path.basename(path))
 
-        generate_stubs(module, module_registry, os.path.join(output_directory, output_file_name))
+        generate_stubs(module, module_registry, path, os.path.join(output_directory, output_file_name))
