@@ -11,7 +11,6 @@ test_map = dummy_capnp.TestMap.new_message()
 text_map = test_map.init("textMap")
 
 assert test_map.textMap is not None
-assert test_map["textMap"] is not None
 
 text_entries = text_map.init_resizable_list("entries")
 text_entry = text_entries.add()

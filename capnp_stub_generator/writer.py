@@ -598,14 +598,6 @@ class Writer:
             )
         )
 
-        self.scope.add(
-            helper.new_function(
-                "__getattr__",
-                parameters=["name"],
-                return_type='Any',
-            )
-        )
-
         self.scope.add(helper.new_decorator("staticmethod"))
         self.scope.add(helper.new_function("new_message", return_type=scoped_new_builder_type_name))
         self.scope.add(helper.new_function("to_dict", parameters=["self"], return_type="dict"))
