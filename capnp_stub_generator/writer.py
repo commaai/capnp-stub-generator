@@ -593,8 +593,24 @@ class Writer:
         self.scope.add(
             helper.new_function(
                 "to_bytes",
-                parameters=[],
+                parameters=["self"],
                 return_type='bytes',
+            )
+        )
+
+        self.scope.add(
+            helper.new_function(
+                "__init__",
+                parameters=["self, *args", "**kwargs"],
+                return_type=type_name,
+            )
+        )
+
+        self.scope.add(
+            helper.new_function(
+                "__getattr__",
+                parameters=["self", "name"],
+                return_type="Any",
             )
         )
 
